@@ -92,8 +92,8 @@ class TorrentEngine:
 
         # Parse magnet link
         params = lt.parse_magnet_uri(magnet_url)
-        params["save_path"] = "/tmp"  # Temporary path, won't download yet
-        params["flags"] = lt.torrent_flags.upload_mode  # Metadata only
+        params.save_path = "/tmp"  # Temporary path, won't download yet
+        params.flags = lt.torrent_flags.upload_mode  # Metadata only
 
         # Add torrent
         handle = self.session.add_torrent(params)
@@ -166,7 +166,7 @@ class TorrentEngine:
 
         # Parse magnet
         params = lt.parse_magnet_uri(magnet_url)
-        params["save_path"] = str(download_path)
+        params.save_path = str(download_path)
 
         # Add torrent
         handle = self.session.add_torrent(params)
