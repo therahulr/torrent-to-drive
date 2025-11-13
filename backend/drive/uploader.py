@@ -2,7 +2,7 @@ import asyncio
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from backend.models import TorrentState
 from backend.database import get_db
 from backend.torrent import get_engine
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class UploadWorker:
-    """Manages concurrent uploads to Google Drive with retry logic"""
+    """Manages concurrent uploads to Google Drive with smart duplicate detection"""
 
     def __init__(self, max_concurrent: int = 3):
         self.max_concurrent = max_concurrent
@@ -21,6 +21,7 @@ class UploadWorker:
         self.active_uploads: Dict[str, asyncio.Task] = {}
         self.running = False
         self._worker_task: Optional[asyncio.Task] = None
+        self._folder_cache: Dict[str, str] = {}  # Cache folder IDs
 
     async def start(self):
         """Start the upload worker"""
@@ -80,11 +81,93 @@ class UploadWorker:
                 logger.error(f"Error in upload queue processing: {e}", exc_info=True)
                 await asyncio.sleep(1)
 
+    async def _get_existing_files(self, drive, folder_id: str) -> Dict[str, Dict]:
+        """
+        Get all existing files in a Drive folder
+        Returns: dict mapping filename -> {id, size, mime_type}
+        """
+        try:
+            files = await drive.list_files(folder_id=folder_id, page_size=1000)
+            return {
+                f.name: {
+                    'id': f.id,
+                    'size': f.size,
+                    'mime_type': f.mime_type,
+                    'is_folder': f.is_folder,
+                }
+                for f in files
+            }
+        except Exception as e:
+            logger.warning(f"Error listing existing files: {e}")
+            return {}
+
+    async def _get_or_create_folder(self, drive, folder_name: str, parent_id: str) -> str:
+        """
+        Get existing folder ID or create new folder
+        Returns: folder_id
+        """
+        cache_key = f"{parent_id}:{folder_name}"
+
+        # Check cache first
+        if cache_key in self._folder_cache:
+            return self._folder_cache[cache_key]
+
+        # Get existing files in parent
+        existing = await self._get_existing_files(drive, parent_id)
+
+        # Check if folder already exists
+        if folder_name in existing and existing[folder_name]['is_folder']:
+            folder_id = existing[folder_name]['id']
+            logger.info(f"Found existing folder: {folder_name} (ID: {folder_id})")
+            self._folder_cache[cache_key] = folder_id
+            return folder_id
+
+        # Create new folder
+        logger.info(f"Creating new folder: {folder_name}")
+        folder_id = await self._upload_with_retry(
+            drive.create_folder,
+            folder_name,
+            parent_id=parent_id,
+        )
+        self._folder_cache[cache_key] = folder_id
+        return folder_id
+
+    async def _file_exists(self, drive, file_path: Path, parent_id: str, existing_files: Dict) -> bool:
+        """
+        Check if file already exists in Drive (by name and size)
+        Returns: True if file exists with same name and size
+        """
+        file_name = file_path.name
+        local_size = file_path.stat().st_size
+
+        if file_name not in existing_files:
+            return False
+
+        remote_file = existing_files[file_name]
+
+        # Skip if it's a folder
+        if remote_file['is_folder']:
+            return False
+
+        # Compare size
+        if remote_file['size'] == local_size:
+            logger.info(f"File already exists, skipping: {file_name} ({local_size} bytes)")
+            return True
+
+        logger.info(f"File exists but size differs: {file_name} (local: {local_size}, remote: {remote_file['size']})")
+        return False
+
     async def _upload_torrent(self, torrent_id: str):
-        """Upload a completed torrent to Google Drive with retry logic"""
+        """Upload a completed torrent to Google Drive with smart duplicate detection"""
         db = await get_db()
         drive = await get_drive_client()
         engine = await get_engine()
+
+        stats = {
+            'uploaded': 0,
+            'skipped': 0,
+            'failed': 0,
+        }
 
         try:
             logger.info(f"Starting upload for torrent {torrent_id}")
@@ -102,33 +185,51 @@ class UploadWorker:
             if not download_path or not download_path.exists():
                 raise ValueError(f"Download path not found for torrent {torrent_id}")
 
-            # Create folder in Drive for this torrent
-            folder_id = await self._upload_with_retry(
-                drive.create_folder,
+            # Get or create root folder for this torrent
+            root_folder_id = await self._get_or_create_folder(
+                drive,
                 torrent.metadata.name,
+                settings.google_drive.shared_folder_id,
             )
 
-            # Upload files/folders
+            logger.info(f"Using Drive folder: {torrent.metadata.name} (ID: {root_folder_id})")
+
+            # Upload files/folders with smart duplicate detection
             if torrent.metadata.num_files == 1:
                 # Single file torrent
                 file_path = download_path / torrent.metadata.files[0].path
-                await self._upload_with_retry(
-                    drive.upload_file,
-                    file_path,
-                    parent_id=folder_id,
-                )
+                existing = await self._get_existing_files(drive, root_folder_id)
+
+                if not await self._file_exists(drive, file_path, root_folder_id, existing):
+                    await self._upload_with_retry(
+                        drive.upload_file,
+                        file_path,
+                        parent_id=root_folder_id,
+                    )
+                    stats['uploaded'] += 1
+                    logger.info(f"Uploaded: {file_path.name}")
+                else:
+                    stats['skipped'] += 1
             else:
                 # Multi-file torrent - upload directory structure
-                await self._upload_directory(drive, download_path, folder_id)
+                await self._upload_directory_smart(
+                    drive,
+                    download_path,
+                    root_folder_id,
+                    stats,
+                )
 
             # Update state and store Drive folder ID
             await db.update_torrent(
                 torrent_id,
                 state=TorrentState.UPLOADED,
-                drive_file_id=folder_id,
+                drive_file_id=root_folder_id,
             )
 
-            logger.info(f"Torrent {torrent_id} uploaded successfully to Drive folder {folder_id}")
+            logger.info(
+                f"Torrent {torrent_id} upload complete - "
+                f"Uploaded: {stats['uploaded']}, Skipped: {stats['skipped']}, Failed: {stats['failed']}"
+            )
 
             # Optional: cleanup local files after successful upload
             # await self._cleanup_local_files(download_path)
@@ -147,24 +248,56 @@ class UploadWorker:
             if torrent_id in self.active_uploads:
                 del self.active_uploads[torrent_id]
 
-    async def _upload_directory(self, drive, local_path: Path, parent_id: str):
-        """Recursively upload directory structure to Drive"""
+    async def _upload_directory_smart(
+        self,
+        drive,
+        local_path: Path,
+        parent_id: str,
+        stats: Dict,
+    ):
+        """
+        Recursively upload directory structure to Drive with duplicate detection
+        - Skips files that already exist (same name and size)
+        - Reuses existing folders
+        - One-way upload only (never deletes from Drive)
+        """
+        # Get existing files in current folder
+        existing = await self._get_existing_files(drive, parent_id)
+
         for item in local_path.iterdir():
-            if item.is_file():
-                await self._upload_with_retry(
-                    drive.upload_file,
-                    item,
-                    parent_id=parent_id,
-                )
-            elif item.is_dir():
-                # Create subfolder
-                subfolder_id = await self._upload_with_retry(
-                    drive.create_folder,
-                    item.name,
-                    parent_id=parent_id,
-                )
-                # Recursively upload contents
-                await self._upload_directory(drive, item, subfolder_id)
+            try:
+                if item.is_file():
+                    # Check if file already exists
+                    if not await self._file_exists(drive, item, parent_id, existing):
+                        await self._upload_with_retry(
+                            drive.upload_file,
+                            item,
+                            parent_id=parent_id,
+                        )
+                        stats['uploaded'] += 1
+                        logger.info(f"Uploaded: {item.name}")
+                    else:
+                        stats['skipped'] += 1
+
+                elif item.is_dir():
+                    # Get or create subfolder (reuse if exists)
+                    subfolder_id = await self._get_or_create_folder(
+                        drive,
+                        item.name,
+                        parent_id,
+                    )
+
+                    # Recursively upload contents
+                    await self._upload_directory_smart(
+                        drive,
+                        item,
+                        subfolder_id,
+                        stats,
+                    )
+
+            except Exception as e:
+                logger.error(f"Error uploading {item.name}: {e}", exc_info=True)
+                stats['failed'] += 1
 
     async def _upload_with_retry(self, upload_func, *args, **kwargs):
         """Execute upload with exponential backoff retry"""
