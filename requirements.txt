@@ -1,0 +1,27 @@
+# Core Backend
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+websockets==12.0
+
+# Torrent Engine
+libtorrent==2.0.9
+
+# Google Drive
+google-api-python-client==2.116.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+
+# Database & Storage
+aiosqlite==0.19.0
+sqlalchemy==2.0.25
+
+# Utilities
+pydantic==2.5.3
+pydantic-settings==2.1.0
+pyyaml==6.0.1
+python-dotenv==1.0.0
+aiofiles==23.2.1
+
+# Async HTTP
+aiohttp==3.9.1

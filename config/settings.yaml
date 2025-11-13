@@ -1,0 +1,27 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: false
+
+torrent:
+  download_path: "./data/torrents"
+  listen_ports: [6881, 6891]
+  max_connections: 200
+  max_uploads: 50
+  upload_rate_limit: 0  # 0 = unlimited
+  download_rate_limit: 0
+  max_concurrent_downloads: 5
+
+google_drive:
+  credentials_file: "./config/credentials.json"
+  token_file: "./config/token.json"
+  shared_folder_id: ""  # User must set this
+  chunk_size: 10485760  # 10MB chunks
+  max_retries: 5
+
+database:
+  path: "./data/torrents.db"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

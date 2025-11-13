@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  torrent-to-drive:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./backend:/app/backend
+    environment:
+      - DRIVE_FOLDER_ID=${DRIVE_FOLDER_ID}
+    restart: unless-stopped
