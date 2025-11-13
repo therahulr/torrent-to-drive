@@ -3,7 +3,7 @@ import aiosqlite
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pathlib import Path
-from ..models import TorrentInfo, TorrentState, TorrentMetadata, TorrentProgress
+from backend.models import TorrentInfo, TorrentState, TorrentMetadata, TorrentProgress
 
 
 class Database:
@@ -131,7 +131,7 @@ async def get_db() -> Database:
     """Get database instance"""
     global db
     if db is None:
-        from ..config import settings
+        from backend.config import settings
         db = Database(settings.database.path)
         await db.init()
     return db

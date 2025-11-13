@@ -3,11 +3,11 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Optional, Dict
-from ..models import TorrentState
-from ..database import get_db
-from ..torrent import get_engine
-from .client import get_drive_client
-from ..config import settings
+from backend.models import TorrentState
+from backend.database import get_db
+from backend.torrent import get_engine
+from backend.drive.client import get_drive_client
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

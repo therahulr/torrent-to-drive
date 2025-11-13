@@ -4,13 +4,13 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, List, Callable
 from datetime import datetime
-from ..models import (
+from backend.models import (
     TorrentMetadata,
     TorrentProgress,
     TorrentState,
     FileInfo,
 )
-from ..config import settings
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -8,12 +8,12 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from typing import List
 
-from .config import settings
-from .database import get_db
-from .torrent import get_engine, get_torrent_worker
-from .drive import get_upload_worker
-from .api import torrents_router, storage_router
-from .models import TorrentState
+from backend.config import settings
+from backend.database import get_db
+from backend.torrent import get_engine, get_torrent_worker
+from backend.drive import get_upload_worker
+from backend.api import torrents_router, storage_router
+from backend.models import TorrentState
 
 # Configure logging
 logging.basicConfig(
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "main:app",
+        "backend.main:app",
         host=settings.server.host,
         port=settings.server.port,
         reload=settings.server.reload,

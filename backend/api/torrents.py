@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
-from ..models import (
+from backend.models import (
     TorrentRequest,
     TorrentDownloadRequest,
     TorrentInfo,
@@ -11,8 +11,8 @@ from ..models import (
     TorrentProgress,
     TorrentState,
 )
-from ..database import get_db
-from ..torrent import get_engine, get_torrent_worker
+from backend.database import get_db
+from backend.torrent import get_engine, get_torrent_worker
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/torrents", tags=["torrents"])

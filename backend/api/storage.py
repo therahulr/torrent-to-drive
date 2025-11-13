@@ -1,8 +1,8 @@
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
-from ..models import DriveFile
-from ..drive import get_drive_client
+from backend.models import DriveFile
+from backend.drive import get_drive_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/storage", tags=["storage"])

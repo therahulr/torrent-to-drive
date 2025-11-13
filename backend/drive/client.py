@@ -9,8 +9,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 import pickle
-from ..models import DriveFile
-from ..config import settings
+from backend.models import DriveFile
+from backend.config import settings
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

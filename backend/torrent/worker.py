@@ -2,10 +2,10 @@ import asyncio
 import logging
 from typing import Dict, Optional
 from datetime import datetime
-from ..models import TorrentState, TorrentProgress, TorrentInfo
-from ..database import get_db
-from .engine import get_engine
-from ..config import settings
+from backend.models import TorrentState, TorrentProgress, TorrentInfo
+from backend.database import get_db
+from backend.torrent.engine import get_engine
+from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class TorrentWorker:
             logger.info(f"Torrent {torrent_id} completed successfully")
 
             # Trigger upload (will be handled by upload worker)
-            from ..drive.worker import get_upload_worker
+            from backend.drive.uploader import get_upload_worker
             upload_worker = await get_upload_worker()
             await upload_worker.add_upload(torrent_id)
 
