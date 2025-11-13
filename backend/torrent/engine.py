@@ -126,7 +126,12 @@ class TorrentEngine:
             )
 
         # Extract trackers
-        trackers = [t.url for t in handle.trackers()]
+        trackers = []
+        for t in handle.trackers():
+            if isinstance(t, dict):
+                trackers.append(t.get('url', ''))
+            else:
+                trackers.append(t.url if hasattr(t, 'url') else str(t))
 
         # Remove temporary torrent
         self.session.remove_torrent(handle)
