@@ -26,7 +26,7 @@ sudo apt-get install -y \
 # Install libtorrent via pip instead of apt (avoids package conflicts)
 echo ""
 echo "Step 1b: Installing libtorrent..."
-pip3 install --user libtorrent
+pip3 install libtorrent
 
 # Check if Node.js is already installed
 echo ""
