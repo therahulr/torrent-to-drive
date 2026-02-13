@@ -50,7 +50,26 @@ class GoogleDriveClient:
 
                 logger.info("Starting OAuth2 flow for Google Drive...")
                 flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
-                self.credentials = flow.run_local_server(port=0)
+                
+                # Try browser-based auth first, fall back to console for headless servers
+                try:
+                    self.credentials = flow.run_local_server(port=0)
+                except Exception as e:
+                    logger.warning(f"Browser auth failed ({e}), using console flow...")
+                    print("\n" + "=" * 60)
+                    print("GOOGLE DRIVE AUTHENTICATION REQUIRED")
+                    print("=" * 60)
+                    print("\nNo browser available. Please authenticate manually:\n")
+                    
+                    # Generate auth URL manually
+                    auth_url, _ = flow.authorization_url(prompt='consent')
+                    print(f"1. Open this URL in your browser:\n\n{auth_url}\n")
+                    print("2. Authorize the application")
+                    print("3. Copy the authorization code and paste it below\n")
+                    
+                    code = input("Enter authorization code: ").strip()
+                    flow.fetch_token(code=code)
+                    self.credentials = flow.credentials
 
             # Save credentials
             os.makedirs(os.path.dirname(token_file), exist_ok=True)
