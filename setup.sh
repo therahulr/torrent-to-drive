@@ -19,11 +19,25 @@ sudo apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
-    libtorrent-rasterbar-dev \
-    python3-libtorrent \
-    nodejs \
-    npm \
-    git
+    git \
+    curl \
+    ca-certificates
+
+# Install libtorrent via pip instead of apt (avoids package conflicts)
+echo ""
+echo "Step 1b: Installing libtorrent..."
+pip3 install --user libtorrent
+
+# Check if Node.js is already installed
+echo ""
+echo "Step 1c: Checking Node.js installation..."
+if command -v node &> /dev/null; then
+    echo "Node.js already installed: $(node --version)"
+else
+    echo "Installing Node.js from NodeSource..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
 
 echo ""
 echo "Step 2: Creating Python virtual environment..."
