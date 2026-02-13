@@ -22,7 +22,7 @@ config/token.json
 config/token.pickle
 
 # Environment variables
-.env
+# .env
 
 # Frontend
 frontend/node_modules/

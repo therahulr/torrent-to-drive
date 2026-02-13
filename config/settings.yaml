@@ -15,7 +15,7 @@ torrent:
 google_drive:
   credentials_file: "./config/credentials.json"
   token_file: "./config/token.json"
-  shared_folder_id: ""  # User must set this
+  shared_folder_id: "1Q5lil1cs4iAOpcoptbdAQ0Rsyhoc45lN"  # User must set this
   chunk_size: 10485760  # 10MB chunks
   max_retries: 5
 
